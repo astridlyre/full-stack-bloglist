@@ -45,11 +45,20 @@ blogListRouter.delete('/:id', async (req, res) => {
 })
 
 blogListRouter.put('/:id', async (req, res) => {
-  const updatedEntry = await BlogEntry.findByIdAndUpdate(
-    req.params.id,
-    { ...req.body, likes: req.body.likes + 1 },
-    { new: true }
-  )
+  const token = req.token,
+    decodedToken = jwt.verify(token, process.env.SECRET)
+
+  if (!token || !decodedToken.id)
+    return res.status(401).json({ error: 'Token missing or invalid' })
+
+  const updatedEntry = await BlogEntry.findById(req.params.id)
+
+  const newLikes = updatedEntry.likes.includes(decodedToken.id)
+    ? updatedEntry.likes.filter(like => like !== decodedToken.id)
+    : updatedEntry.likes.concat(decodedToken.id)
+
+  updatedEntry.likes = newLikes
+  await updatedEntry.save()
   res.json(updatedEntry)
 })
 
@@ -73,7 +82,12 @@ blogListRouter.post('/', async (req, res) => {
   user.blogEntries = user.blogEntries.concat(savedEntry._id)
   await user.save()
 
-  res.status(201).json(savedEntry)
+  const payload = await savedEntry.populate('user', {
+    username: 1,
+    name: 1,
+  })
+
+  res.status(201).json(payload)
 })
 
 module.exports = blogListRouter
