@@ -3,13 +3,6 @@ const jwt = require('jsonwebtoken')
 const BlogEntry = require('../models/blog-entry')
 const User = require('../models/user')
 
-// const getTokenFrom = req => {
-//   const authorization = req.get('authorization')
-//   if (authorization && authorization.toLowerCase().startsWith('bearer '))
-//     return authorization.substring(7)
-//   return null
-// }
-
 blogListRouter.get('/', async (req, res) => {
   const blogList = await BlogEntry.find({}).populate('user', {
     username: 1,
@@ -51,14 +44,20 @@ blogListRouter.put('/:id', async (req, res) => {
   if (!token || !decodedToken.id)
     return res.status(401).json({ error: 'Token missing or invalid' })
 
-  const updatedEntry = await BlogEntry.findById(req.params.id)
+  const blog = {
+    title: req.body.title,
+    author: req.body.author,
+    url: req.body.url,
+    blurb: req.body.blurb,
+    likes: req.body.likes,
+    user: req.body.user.id,
+    comments: req.body.comments,
+  }
 
-  const newLikes = updatedEntry.likes.includes(decodedToken.id)
-    ? updatedEntry.likes.filter(like => like !== decodedToken.id)
-    : updatedEntry.likes.concat(decodedToken.id)
+  const updatedEntry = await BlogEntry.findByIdAndUpdate(req.params.id, blog, {
+    new: true,
+  })
 
-  updatedEntry.likes = newLikes
-  await updatedEntry.save()
   res.json(updatedEntry)
 })
 
@@ -74,6 +73,7 @@ blogListRouter.post('/', async (req, res) => {
       title: req.body.title,
       author: req.body.author,
       url: req.body.url,
+      blurb: req.body.blurb,
       likes: req.body.likes,
       user: user._id,
     }),
